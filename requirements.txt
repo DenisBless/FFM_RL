@@ -1,0 +1,14 @@
+# Install JAX for your accelerator first, e.g.  pip install "jax[cuda12]"
+# (the paper's runs used jax 0.10.x with the CUDA 12 plugin).
+jax>=0.4.26
+flax>=0.8.4
+optax
+ml_collections
+absl-py
+numpy
+ogbench>=1.2
+gymnasium
+mujoco
+wandb
+tqdm
+Pillow
