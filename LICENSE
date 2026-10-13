@@ -2,9 +2,12 @@ The MIT License (MIT)
 
 Copyright (c) 2026 Authors of "Reinforcement Learning via Fixed-point Flow Matching"
 
-This codebase is derived from the Trust Region Q-Adjoint Matching (TRQAM)
-codebase, Copyright (c) 2026 Authors of "Trust Region Q-Adjoint Matching",
-released under the same license.
+The offline-to-online code (offline2online/) is derived from the Trust Region
+Q-Adjoint Matching (TRQAM) codebase, Copyright (c) 2026 Authors of "Trust
+Region Q-Adjoint Matching", released under the same license. The online code
+(online/) is derived from the REPPO codebase, Copyright (c) 2025 Claas
+Voelcker, released under the same license; online/LICENSE retains that notice
+together with those of FastTD3 (MIT) and PureJaxRL (Apache 2.0).
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

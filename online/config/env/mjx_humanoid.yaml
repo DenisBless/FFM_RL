@@ -1,0 +1,15 @@
+type: mjx
+name: G1JoystickFlatTerrain
+max_episode_steps: 1000
+reward_scaling: 1.0
+terminate: false
+push_distractions: false
+asymmetric_observation: true
+
+vmin: -10
+vmax:  10
+
+#    "G1JoystickFlatTerrain",
+#    "G1JoystickRoughTerrain",
+#    "T1JoystickFlatTerrain",
+#    "T1JoystickRoughTerrain"

@@ -1,0 +1,7 @@
+amp_enabled: false
+amp_device: "cuda"
+cuda: true
+amp_dtype: f32
+torch_deterministic: false
+device_rank: 0
+compile: true

@@ -1,0 +1,143 @@
+[project]
+name = "ffm-online"
+version = "0.1.0"
+description = "Fixed-point Flow Matching (FFM): online on-policy maximum-entropy RL with flow policies."
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "black>=25.1.0",
+    "brax>=0.12.1",
+    "distrax>=0.1.5",
+    "flax>=0.10.3",
+    "gymnax>=0.0.8",
+    "hydra-core>=1.3.2",
+    "hydra-submitit-launcher>=1.2.0",
+    "jax-tqdm>=0.3.1",
+    "jax[cuda12]==0.6.0 ; sys_platform == 'linux'",
+    "jax==0.6.0 ; sys_platform == 'darwin'",
+    "mani-skill>=3.0.0b21",
+    "matplotlib>=3.10.0",
+    "optax>=0.2.4",
+    "optuna-integration>=4.3.0",
+    "optuna>=4.3.0",
+    "playground",
+    "plotly>=6.0.1",
+    "rliable>=1.2.0",
+    "tensordict>=0.8.3",
+    "torch>=2.7.1",
+    "tyro>=0.9.25",
+    "sapien>=3.0.0b1 ; sys_platform != 'darwin'",
+    "wandb>=0.20.1",
+    "torchinfo>=1.8.0",
+    "debugpy>=1.8.14",
+    "notebook>=7.4.4",
+    "inflection>=0.5.1",
+    "scalene>=1.5.51",
+    "debugpy>=1.8.14",
+    "numpyro==0.15.3",
+    "flashbax",
+    "statsmodels<0.14.6",
+    "warp-lang>=1.10.0",
+    "stable-baselines3>=2.7.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.0,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "src"
+module-root = ""
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "outputs",
+    "multirun",
+    "wandb"
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.13
+target-version = "py313"
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F"]
+# ignores not assigning lambda rule for jax compatibility
+ignore = ["E731"]
+
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = false
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
+
+[tool.uv.sources]
+playground = { git = "https://github.com/younggyoseo/mujoco_playground" }
+
+
+[tool.uv]
+override-dependencies = [
+    "torch>=2.7.1",
+    "brax==0.13.0",
+    "mujoco==3.3.7",
+    "mujoco-mjx==3.3.7",
+]

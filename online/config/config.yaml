@@ -1,0 +1,135 @@
+# Config for src/jaxrl/ffm_submission.py: the FFM trainer at the configuration
+# of the paper's online experiments (MuJoCo Playground DMC tasks and MJX
+# humanoid joystick tasks). Every key is read by the trainer; every value is
+# the published one.
+#
+# Launch (playground, gamma 0.99):
+#   uv run python src/jaxrl/ffm_submission.py env.name=<Task> seed=N
+# Humanoids: add
+#   env=mjx_humanoid hyperparameters.gamma=0.97
+defaults:
+  - env: mjx_dmc
+  #- env: mjx_humanoid
+  - platform: torch
+  - _self_
+
+hyperparameters:
+  # env and run settings
+  total_time_steps: 55_050_240  #  total environment interactions
+  normalize_env: true
+  max_episode_steps: 1000  #  Environment episode length
+  num_eval: 21  # Total number of evaluations total_time_steps / num_eval
+  eval_first_episode_only: True # just take first episode of each env to avoid bias
+
+  # optimization settings
+  lr: 3e-4  # Learning rate for all networks and the dual variables
+  max_grad_norm: 0.5
+
+  # problem discount settings
+  gamma: 0.99  # discount factor (playground; humanoids: 0.97)
+  lmbda: 0.95  # Parameter for TD lambda
+
+  # batch settings
+  # buffer_size  = num_steps * num_envs
+  # batch_size = num_steps * num_envs / num_minibatches
+  num_steps: 128
+  num_mini_batches: 128
+  num_envs: 1024
+  num_epochs_actor: 4
+  num_epochs_critic: 4
+
+  # norm-based clipping of the critic action gradient (through the squashing)
+  Q_score_max_norm: 5.
+  Q_score_max_percentile: 80.0
+
+  # critic architecture settings (HL-Gauss distributional critic)
+  critic_hidden_dim: 512
+  vmin: ${env.vmin}
+  vmax: ${env.vmax}
+  num_bins: 151
+  use_critic_norm: true
+  num_critic_encoder_layers: 2
+  num_critic_head_layers: 2
+  num_critic_pred_layers: 2
+
+  # actor & critic loss settings
+  ## KL trust region to the iteration-start policy (velocity-space L2),
+  ## dual-descent multiplier
+  kl_start: 1.0  # initial value of the trust-region multiplier
+  kl_bound: 0.1
+  ## entropy settings (temperature dual on the divergence entropy estimate)
+  ent_start: 0.01
+  ent_target_mult: 0.1  # entropy target H* = -0.1 * action_dim
+  ## auxiliary loss settings
+  aux_loss_mult: 1.0
+
+  # logging settings (disable for faster training)
+  log_pnorm: true
+  log_gnorm: true
+
+  # FFM diffusion / flow settings
+  diffusion:
+    diff_steps: 16      # ODE integration steps (midpoint time grid)
+    # Bridged geometric interpolant schedule (paper Eq. 59):
+    # alpha = (1 - r^{-2t})/(1 - r^{-2}), beta = sigma_max sqrt(r^{-2t} - r^{-2}),
+    # in RATIO mode: r = sigma_max/sigma_min set below, the prior std pinned at
+    # sigma_0 and sigma_max = sigma_0/sqrt(1 - r^-2), sigma_min = sigma_max/r.
+    schedule: "geometric"
+    ratio: 2.5
+    sigma_0: 1.0        # prior std beta(0)
+    squashing: "erf"   # erf map: the prior pushes forward to Uniform(-1,1)^d
+    squashing_scale: 1.0  # c in erf(x/(c*sigma_0*sqrt(2)))
+
+    # FFM fixed-point regression settings
+    ffm:
+      # Additive temperature floor: temperature = temp_min + exp(log_temp).
+      temp_min: 1e-8
+      # Fixed Fisher scale I_bar of the variance-optimal mixing
+      # cstar(t) = alpha^2 / (alpha^2 + beta^2 * I_bar); 1.0 = AMDP
+      # equal-variance weighting (the published configuration).
+      i_fisher: 1.0
+      # Endpoint softening delta for the two divergent denominators of the
+      # score-space residual (in place of a time truncation).
+      t_softening: 0.05
+      # Hutchinson probes per ODE node for the TRAINING entropy
+      # (~diff_steps*(probes+1) forward passes per transition).
+      ent_div_probes: 4
+
+    score_model:
+      # Velocity head: plain MLP with Fourier time/action features.
+      num_layers: 3
+      num_hid: 512
+      time_mode: mlp # mlp, linear
+      time_mlp_input: both # linear, fourier, both
+      num_time_fourier: 16
+      time_fourier_range_min: 0.1
+      time_fourier_range_max: 100.0
+      num_time_hid: 32
+      num_time_out: 16
+      action_mode: linear # mlp, linear
+      action_mlp_input: both # linear, fourier, both
+      num_action_fourier: 16
+      action_fourier_range_min: 0.1
+      action_fourier_range_max: 100.0
+      num_action_hid: 32
+      num_action_out: 16
+      outer_clip: 1e4
+      inner_clip: 1e2
+      weight_init: 1e-8
+      bias_init: 0.
+      layer_norm: true
+      layer_norm_type: "LayerNorm"
+
+name: "ffm"
+seed: 0
+num_seeds: 1
+tags: ["ffm", "submission"]
+wandb:
+  mode: "online" # set to online to activate wandb
+  entity:
+  project: "ffm_online"
+  group: FFM_EntTarget${hyperparameters.ent_target_mult}_Sch${hyperparameters.diffusion.schedule}_r${hyperparameters.diffusion.ratio}_Squash${hyperparameters.diffusion.squashing}_scale${hyperparameters.diffusion.squashing_scale}_gamma${hyperparameters.gamma}
+
+hydra:
+  job:
+    chdir: True
