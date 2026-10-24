@@ -51,6 +51,14 @@ uv sync
 uv run python src/jaxrl/ffm_submission.py env.name=CheetahRun seed=0
 ```
 
+The online folder also contains the flow-map policies of the paper, which generate an action in one
+or two network evaluations instead of integrating the flow
+([`online/README.md`](online/README.md#flow-map-policies-one--and-two-step-sampling)):
+
+```bash
+uv run python src/jaxrl/flowmap_ffm.py env.name=CheetahRun seed=0     # two-step flow map
+```
+
 ## Citation
 
 ```bibtex
