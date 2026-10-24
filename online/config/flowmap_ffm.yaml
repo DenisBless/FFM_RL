@@ -1,0 +1,168 @@
+# Config for src/jaxrl/flowmap_ffm.py: FFM with a flow-map policy sampled in
+# diffusion.flowmap.map_steps network evaluations (2 = the two-step sampler,
+# the default; 1 = the one-step sampler). Everything outside the
+# diffusion.flowmap block is the FFM configuration of config.yaml.
+#
+# Launch (playground, gamma 0.99):
+#   uv run python src/jaxrl/flowmap_ffm.py env.name=<Task> seed=N
+# One-step sampler: add
+#   hyperparameters.diffusion.flowmap.map_steps=1
+# Humanoids: add
+#   env=mjx_humanoid hyperparameters.gamma=0.97
+# scripts/run_flowmap.sh sets all of these per task.
+defaults:
+  - env: mjx_dmc
+  #- env: mjx_humanoid
+  - platform: torch
+  - _self_
+
+hyperparameters:
+  # env and run settings
+  total_time_steps: 55_050_240  #  total environment interactions
+  normalize_env: true
+  max_episode_steps: 1000  #  Environment episode length
+  num_eval: 21  # Total number of evaluations total_time_steps / num_eval
+  eval_first_episode_only: True # just take first episode of each env to avoid bias
+
+  # optimization settings
+  lr: 3e-4  # Learning rate for all networks and the dual variables
+  max_grad_norm: 0.5
+
+  # problem discount settings
+  gamma: 0.99  # discount factor (playground; humanoids: 0.97)
+  lmbda: 0.95  # Parameter for TD lambda
+
+  # batch settings
+  # buffer_size  = num_steps * num_envs
+  # batch_size = num_steps * num_envs / num_minibatches
+  num_steps: 128
+  num_mini_batches: 128
+  num_envs: 1024
+  num_epochs_actor: 4
+  num_epochs_critic: 4
+
+  # norm-based clipping of the critic action gradient (through the squashing)
+  Q_score_max_norm: 5.
+  Q_score_max_percentile: 80.0
+
+  # critic architecture settings (HL-Gauss distributional critic)
+  critic_hidden_dim: 512
+  vmin: ${env.vmin}
+  vmax: ${env.vmax}
+  num_bins: 151
+  use_critic_norm: true
+  num_critic_encoder_layers: 2
+  num_critic_head_layers: 2
+  num_critic_pred_layers: 2
+
+  # actor & critic loss settings
+  ## KL trust region to the iteration-start policy (velocity-space L2),
+  ## dual-descent multiplier
+  kl_start: 1.0  # initial value of the trust-region multiplier
+  kl_bound: 0.1
+  ## entropy settings (temperature dual on the velocity's divergence entropy)
+  ent_start: 0.01
+  ent_target_mult: 0.1  # entropy target H* = -0.1 * action_dim
+  ## auxiliary loss settings
+  aux_loss_mult: 1.0
+
+  # logging settings (disable for faster training)
+  log_pnorm: true
+  log_gnorm: true
+
+  # FFM diffusion / flow settings
+  diffusion:
+    # ODE steps of the velocity u(x, t, t) (midpoint time grid): the
+    # divergence entropy read by the temperature dual integrates it.
+    diff_steps: 16
+    # Bridged geometric interpolant schedule (paper Eq. 59):
+    # alpha = (1 - r^{-2t})/(1 - r^{-2}), beta = sigma_max sqrt(r^{-2t} - r^{-2}),
+    # in RATIO mode: r = sigma_max/sigma_min set below, the prior std pinned at
+    # sigma_0 and sigma_max = sigma_0/sqrt(1 - r^-2), sigma_min = sigma_max/r.
+    schedule: "geometric"
+    ratio: 2.5
+    sigma_0: 1.0        # prior std beta(0)
+    squashing: "erf"   # erf map: the prior pushes forward to Uniform(-1,1)^d
+    squashing_scale: 1.0  # c in erf(x/(c*sigma_0*sqrt(2)))
+
+    # FFM fixed-point regression settings (as config.yaml)
+    ffm:
+      # Additive temperature floor: temperature = temp_min + exp(log_temp).
+      temp_min: 1e-8
+      # Fixed Fisher scale I_bar of the variance-optimal mixing
+      # cstar(t) = alpha^2 / (alpha^2 + beta^2 * I_bar); 1.0 = AMDP
+      # equal-variance weighting.
+      i_fisher: 1.0
+      # Endpoint softening delta for the two divergent denominators of the
+      # score-space residual (in place of a time truncation).
+      t_softening: 0.05
+      # Hutchinson probes per ODE node for the velocity entropy of the
+      # temperature dual.
+      ent_div_probes: 4
+
+    # Flow-map policy settings
+    flowmap:
+      # Sampler: map_steps Euler steps of the flow map on the grid t_k = k/K,
+      # x_{k+1} = x_k + (1/K) u(x_k, t_k, t_{k+1}), from x_0 ~ N(0, sigma_0^2).
+      # 2 = two-step sampler, 1 = one-step sampler.
+      map_steps: 2
+      # Floor on |det(I + h J_k)| in the exact entropy of the sampler: a map
+      # that folds (det -> 0; seen on 1-D action spaces) would send log|det|
+      # to -inf in the soft reward.
+      logdet_floor: 1e-6
+      # Fraction of each actor minibatch regressed as a flow map at
+      # (t, r) = (min, max) of two uniforms, by Lagrangian self-distillation
+      # from the network's own velocity; the rest (1 - map_frac) carries
+      # FFM's velocity regression at r = t.
+      map_frac: 0.5
+      # Weight of the map loss against FFM's velocity loss.
+      map_weight: 1.0
+      # States per iteration for the velocity entropy of the temperature dual.
+      ent_dual_batch: 256
+      # Anti-windup cap of the temperature dual (null = off): above it the
+      # dual may lower the temperature, not raise it.
+      temp_max: 1.0
+
+    score_model:
+      # Flow-map head: plain MLP with Fourier features of the action and of
+      # the two times (t, r - t).
+      num_layers: 3
+      num_hid: 512
+      time_mode: mlp # mlp, linear
+      time_mlp_input: both # linear, fourier, both
+      num_time_fourier: 16
+      time_fourier_range_min: 0.1
+      time_fourier_range_max: 100.0
+      num_time_hid: 32
+      num_time_out: 16
+      action_mode: linear # mlp, linear
+      action_mlp_input: both # linear, fourier, both
+      num_action_fourier: 16
+      action_fourier_range_min: 0.1
+      action_fourier_range_max: 100.0
+      num_action_hid: 32
+      num_action_out: 16
+      outer_clip: 1e4
+      inner_clip: 1e2
+      weight_init: 1e-8
+      bias_init: 0.
+      layer_norm: true
+      layer_norm_type: "LayerNorm"
+
+name: "flowmap_ffm"
+seed: 0
+num_seeds: 1
+# > 0: run the evaluation chunks from Python and checkpoint the full train
+# state to resume_state.pkl in the run dir every resume_every chunks; a
+# restarted run in the same dir resumes from it (preemptible clusters).
+resume_every: 0
+tags: ["ffm", "flowmap"]
+wandb:
+  mode: "online" # set to online to activate wandb
+  entity:
+  project: "ffm_online"
+  group: FlowMap_K${hyperparameters.diffusion.flowmap.map_steps}_EntTarget${hyperparameters.ent_target_mult}_r${hyperparameters.diffusion.ratio}_gamma${hyperparameters.gamma}
+
+hydra:
+  job:
+    chdir: True
